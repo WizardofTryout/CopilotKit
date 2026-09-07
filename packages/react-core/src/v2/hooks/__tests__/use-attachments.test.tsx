@@ -214,10 +214,63 @@ describe("useAttachments", () => {
       };
     }
 
-    it("uploads three files at a time by default", async () => {
+    it("uploads one at a time by default", async () => {
       const { files, gates, started, onUpload, peak } = gatedUploads(7);
       const { result } = renderHook(() =>
         useAttachments({ config: { enabled: true, onUpload } }),
+      );
+
+      let processing!: Promise<void>;
+      await act(async () => {
+        processing = result.current.processFiles(files);
+      });
+
+      // Concurrency is opt-in: one upload in flight, the rest waiting for the slot.
+      expect(started).toEqual(["file-0.png"]);
+
+      await act(async () => {
+        gates.forEach((gate) => gate.resolve());
+        await processing;
+      });
+
+      expect(peak()).toBe(1);
+      expect(started).toHaveLength(7);
+      expect(result.current.attachments.map((a) => a.status)).toEqual(
+        Array(7).fill("ready"),
+      );
+    });
+
+    it("queues every picked file immediately, in pick order", async () => {
+      const { files, gates, onUpload } = gatedUploads(5);
+      const { result } = renderHook(() =>
+        useAttachments({ config: { enabled: true, onUpload } }),
+      );
+
+      let processing!: Promise<void>;
+      await act(async () => {
+        processing = result.current.processFiles(files);
+      });
+
+      // All five are visible as "uploading" even though only the first has started.
+      expect(result.current.attachments.map((a) => a.filename)).toEqual(
+        files.map((f) => f.name),
+      );
+      expect(result.current.attachments.map((a) => a.status)).toEqual(
+        Array(5).fill("uploading"),
+      );
+
+      await act(async () => {
+        gates.forEach((gate) => gate.resolve());
+        await processing;
+      });
+    });
+
+    it("uploads three at a time when maxConcurrentUploads is 3", async () => {
+      const { files, gates, started, onUpload, peak } = gatedUploads(7);
+      const { result } = renderHook(() =>
+        useAttachments({
+          config: { enabled: true, onUpload, maxConcurrentUploads: 3 },
+        }),
       );
 
       let processing!: Promise<void>;
@@ -238,55 +291,6 @@ describe("useAttachments", () => {
       expect(result.current.attachments.map((a) => a.status)).toEqual(
         Array(7).fill("ready"),
       );
-    });
-
-    it("queues every picked file immediately, in pick order", async () => {
-      const { files, gates, onUpload } = gatedUploads(5);
-      const { result } = renderHook(() =>
-        useAttachments({ config: { enabled: true, onUpload } }),
-      );
-
-      let processing!: Promise<void>;
-      await act(async () => {
-        processing = result.current.processFiles(files);
-      });
-
-      // All five are visible as "uploading" even though only three have started.
-      expect(result.current.attachments.map((a) => a.filename)).toEqual(
-        files.map((f) => f.name),
-      );
-      expect(result.current.attachments.map((a) => a.status)).toEqual(
-        Array(5).fill("uploading"),
-      );
-
-      await act(async () => {
-        gates.forEach((gate) => gate.resolve());
-        await processing;
-      });
-    });
-
-    it("uploads one at a time when maxConcurrentUploads is 1", async () => {
-      const { files, gates, started, onUpload, peak } = gatedUploads(4);
-      const { result } = renderHook(() =>
-        useAttachments({
-          config: { enabled: true, onUpload, maxConcurrentUploads: 1 },
-        }),
-      );
-
-      let processing!: Promise<void>;
-      await act(async () => {
-        processing = result.current.processFiles(files);
-      });
-
-      expect(started).toEqual(["file-0.png"]);
-
-      await act(async () => {
-        gates.forEach((gate) => gate.resolve());
-        await processing;
-      });
-
-      expect(peak()).toBe(1);
-      expect(started).toHaveLength(4);
     });
 
     it("treats a non-positive maxConcurrentUploads as one at a time", async () => {

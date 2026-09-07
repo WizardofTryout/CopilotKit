@@ -17,10 +17,11 @@ export interface UseAttachmentsProps {
 const DEFAULT_MAX_SIZE = 20 * 1024 * 1024;
 
 /**
- * How many uploads run at once when `maxConcurrentUploads` is unset. Three keeps
- * a multi-file selection quick without opening a connection per file.
+ * How many uploads run at once when `maxConcurrentUploads` is unset. One, because
+ * `onUpload` is a public callback an app may have written expecting the previous
+ * file to have finished — concurrency is something the app asks for.
  */
-const DEFAULT_MAX_CONCURRENT_UPLOADS = 3;
+const DEFAULT_MAX_CONCURRENT_UPLOADS = 1;
 
 /**
  * At least one upload at a time, whole files only; `NaN` or a non-number falls back to the

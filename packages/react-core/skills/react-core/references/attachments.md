@@ -139,13 +139,13 @@ useAttachments({
 
 ### Upload concurrency
 
-Multi-file selections upload three at a time by default; the rest start as slots
-free up, and the whole selection is queued as `status: "uploading"` right away.
-`onUpload` is therefore called concurrently and must not assume the previous file
-finished. Set `maxConcurrentUploads` to change the pool — `1` restores
-one-at-a-time uploads for an endpoint that needs it, `Infinity` lifts the limit.
-The pool is per hook, not per call, so a paste landing mid-upload shares the same
-slots instead of opening its own.
+Multi-file selections upload one file at a time by default, and the whole
+selection is queued as `status: "uploading"` right away. Raise
+`maxConcurrentUploads` to run several together — the rest then start as slots
+free up, `Infinity` lifts the limit, and `onUpload` may be called concurrently,
+so above `1` it must not assume the previous file finished. The pool is per hook,
+not per call, so a paste landing mid-upload shares the same slots instead of
+opening its own.
 
 ```tsx
 useAttachments({
